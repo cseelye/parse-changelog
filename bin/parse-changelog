@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+from collections import OrderedDict
+from datetime import datetime
+from importlib import metadata
+import json
+import os
+import re
+import sys
+
+
+def main(changelog_file, show_unreleased, new_release=None, release_date=None):
+    # Two modes of operation - insert a new release into the changelog, or parse the changelog to JSON
+
+    #
+    # Mode 1 - add a new release to the changelog, using the current content of the Unreleased section.
+    #
+    if new_release:
+        if not release_date:
+            release_date = datetime.now().strftime("%Y-%m-%d")
+        new_release_title = f"[{new_release}] - {release_date}"
+        try:
+            with open(changelog_file, "r", encoding="utf-8") as cf:
+                changelog = cf.read()
+        except FileNotFoundError:
+            print(f"Could not find {changelog_file}")
+            sys.exit(0)
+        # Walk through existing changelog line by line
+        # When Unreleased is found, insert the new release title
+        new_changelog = ".CHANGELOG.md.new"
+        try:
+            with open(new_changelog, 'w') as tmp:
+                # Read each line in the old changelog and write it to the new changelog.
+                # When we find the unreleased section, skip all the lines until the next section
+                # When we find the first section after unreleased, write the new release first
+                for line in changelog.split("\n"):
+                    if line.startswith("#") and line.count("#") == 2:
+                        title = line.strip("#").strip().lower()
+                        if title == "[unreleased]":
+                            # Insert the new release
+                            tmp.write(line + "\n")
+                            tmp.write("\n")
+                            tmp.write(f"## {new_release_title}\n")
+                            continue
+
+                        tmp.write(line + "\n")
+                        continue
+
+                    tmp.write(line + "\n")
+
+                os.rename(new_changelog, "CHANGELOG.md")
+        finally:
+            # Make sure intermediate file is removed
+            try:
+                os.remove(new_changelog)
+            except FileNotFoundError:
+                pass
+        sys.exit(0)
+
+
+    #
+    # Mode 2 - parse the changelog into a list of releases
+    #
+    try:
+        with open(changelog_file, "r", encoding="utf-8") as cf:
+            changelog = cf.read()
+    except FileNotFoundError:
+        print(f"Could not find {changelog_file}")
+        sys.exit(0)
+
+    # This parser is extremely simple and makes many assumptions about the structure of the document.
+    # Instead of parsing headings into a generic tree structure, assume the changelog format where there is a single
+    # heading1 node, a list of heading2 nodes that refer to releases, and 0 or more heading3 nodes per release that
+    # refer to types of changes
+    release_list = OrderedDict()
+    current_release = None
+    current_content = []
+    found_heading1 = False
+    version = "unknown"
+    rel_date = "unknown"
+    for line in changelog.split("\n"):
+        if line.startswith("#"):
+            heading_level = line.count("#")
+            title = line.strip("#").strip()
+
+            # Main heading, there should only be one
+            if heading_level == 1:
+                assert title.lower() == "changelog", "The top level heading1 must be named Changelog"
+                assert not found_heading1, "There can only be one heading1"
+                found_heading1 = True
+                continue
+
+            # Heading2, this indicates a release section
+            if heading_level == 2:
+                # A new release means stop parsing for the previous release
+                # Add the previous release to the document
+                if current_release:
+                    if version != "unknown":
+                        section_key = version
+                    else:
+                        section_key = current_release
+                    release_list[section_key] = {
+                        "title": current_release,
+                        "content": "\n".join(current_content),
+                        "version": version,
+                        "date": rel_date}
+
+                current_release = title
+                current_content = []
+                if title.lower() == "[unreleased]": # Special case for Unreleased section
+                    version = "prerelease"
+                    rel_date = "unreleased"
+                else:
+                    # Parse version and release date from the section title
+                    m =re.match(r"\[(\d+\.\d+\.\d+)\[-\.+0-9a-zA-Z]*]\s+-\s+(\d{4}-\d{2}-\d{2})", title)
+                    if m:
+                        version = m.group(1)
+                        rel_date = m.group(2)
+                    else:
+                        version = "unknown"
+                        rel_date = "unknown"
+
+                continue
+
+            # Any other level is content inside a release
+            if heading_level >= 3:
+                current_content.append(line)
+                continue
+
+        # Anything other than a release line, add to the current content
+        current_content.append(line)
+
+    # Add the last section we found
+    if current_release:
+        if version != "unknown":
+            section_key = version
+        else:
+            section_key = current_release
+        release_list[section_key] = {
+            "title": current_release,
+            "content": "\n".join(current_content),
+            "version": version,
+            "date": rel_date}
+
+    # Only show the unreleased changes section
+    if show_unreleased:
+        print(release_list.get("prerelease", {}).get("content", ""))
+        sys.exit(0)
+
+    # Show what we parsed, in JSON format
+    print(json.dumps(release_list, indent=2))
+    sys.exit(0)
+
+    # # Sort known versions in reversed, semantic order
+    # versions = list(document.keys())
+    # versions.remove("prerelease")
+    # versions.sort(key = lambda x: [int(y) for y in x.split('.')], reverse=True)
+    # print(versions)
+
+def get_version():
+    try:
+        import parse_changelog
+        return parse_changelog.get_version()
+    except ImportError:
+        return "0.0.0"
+
+
+if __name__ == "__main__":
+    parser = ArgumentParser(description="Parse and update changelog files",
+                            formatter_class=ArgumentDefaultsHelpFormatter)
+    parser.add_argument("--changelog", "-c", dest="changelog_file", default="CHANGELOG.md",
+                        help="the changelog file to parse")
+    parser.add_argument("--show-unreleased", "-u", dest="show_unreleased", action="store_true",
+                        help="When parsing, only show the changes from the Unreleased section")
+    parser.add_argument("--release", "-r", dest="new_release", metavar="X.Y.Z",
+                    help="Create a new release by moving the Unreleased section to the specified new release section")
+    parser.add_argument("--date", "-d", dest="release_date", metavar="YYYY-MM-DD",
+                        help="Use this date for the new release, instead of today")
+    parser.add_argument("--version", "-v", action="version", version=get_version())
+    args = parser.parse_args()
+
+    main(args.changelog_file, args.show_unreleased, args.new_release, args.release_date)

@@ -1,0 +1,11 @@
+{
+    "name": "changelog-parser",
+    "build":{
+        "dockerfile": "Dockerfile",
+        "context": ".."
+    },
+    "extensions": [
+        "ms-python.python",
+        "cseelye.vscode-allofthem"
+    ]
+}
