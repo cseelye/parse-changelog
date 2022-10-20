@@ -7,4 +7,5 @@ RUN pip install --upgrade pip && \
     pip install \
         pylint
         setuptools \
+        twine \
         wheel
