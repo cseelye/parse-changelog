@@ -1,9 +1,6 @@
 {
     "name": "changelog-parser",
-    "build":{
-        "dockerfile": "Dockerfile",
-        "context": ".."
-    },
+    "image": "ghcr.io/cseelye/ubuntu-base-dev",
     "extensions": [
         "ms-python.python",
         "cseelye.vscode-allofthem"
