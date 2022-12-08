@@ -1,9 +1,13 @@
 SHELL := /usr/bin/env -S bash -euET -o pipefail -O inherit_errexit
 
 .PHONY: package
-package:
+package: write-version
 	python setup.py sdist
 	python setup.py bdist_wheel --universal
+
+.PHONY: write-version
+write-version:
+	./write-version-file
 
 .PHONY: test-publish
 test-publish: package
@@ -16,6 +20,7 @@ publish:
 .PHONY: clean
 clean:
 	$(RM) -r build *.egg-info
+	$(RM) -r parse_changelog/__pycache__
 
 .PHONY: clobber
 clobber: clean

@@ -1,8 +1,8 @@
-from setuptools import setup, find_packages
+from setuptools import setup
+from parse_changelog import get_version
 
 try:
-    with open("parse_changelog/VERSION") as version_file:
-        version = version_file.read().strip()
+    version = get_version()
 except Exception:
     version = "unknown"
 try:

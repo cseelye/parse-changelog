@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y \
         python3-pip
 RUN pip install --upgrade pip && \
     pip install \
+        bump2version \
         pylint
         setuptools \
         twine \
