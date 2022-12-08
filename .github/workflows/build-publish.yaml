@@ -26,6 +26,21 @@ jobs:
         sudo apt-get install --yes make
         python -m pip install setuptools twine wheel
 
+    - name: Update CHANGELOG with release
+      if: startsWith(github.ref, 'refs/tags')
+      run: |-
+        bin/parse-changelog --release "${GITHUB_REF_NAME:1}"
+
+    - name: Commit the CHANGELOG
+      uses: stefanzweifel/git-auto-commit-action@v4
+      with:
+        commit_message: Update changelog for release
+        commit_user_name: Build Robot
+        commit_user_email: actions@github.com
+        commit_author: Build Robot <actions@github.com>
+        create_branch: false
+        file_pattern: CHANGELOG.md
+
     - name: Build pypi package 📦
       run: >-
         make package
