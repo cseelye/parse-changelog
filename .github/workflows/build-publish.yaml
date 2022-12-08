@@ -38,6 +38,7 @@ jobs:
         commit_user_name: Build Robot
         commit_user_email: actions@github.com
         commit_author: Build Robot <actions@github.com>
+        branch: main
         create_branch: false
         file_pattern: CHANGELOG.md
 
