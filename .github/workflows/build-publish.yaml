@@ -14,7 +14,7 @@ jobs:
     steps:
 
     - name: Check out the repo
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Set up Python 3.10 🐍
       uses: actions/setup-python@v3
@@ -32,15 +32,15 @@ jobs:
         bin/parse-changelog --release "${GITHUB_REF_NAME:1}"
 
     - name: Commit the CHANGELOG
-      uses: stefanzweifel/git-auto-commit-action@v4
-      with:
-        commit_message: Update changelog for release
-        commit_user_name: Build Robot
-        commit_user_email: actions@github.com
-        commit_author: Build Robot <actions@github.com>
-        branch: main
-        create_branch: false
-        file_pattern: CHANGELOG.md
+      if: startsWith(github.ref, 'refs/tags')
+      run: |-
+        if ! git diff -s --exit-code CHANGELOG.md; then
+          git config user.name github-actions;
+          git config user.email github-actions@github.com;
+          git add CHANGELOG.md;
+          git commit -m "Update CHANGELOG for new release";
+          git push;
+        fi
 
     - name: Build pypi package 📦
       run: >-
