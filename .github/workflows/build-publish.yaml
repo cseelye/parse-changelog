@@ -39,7 +39,7 @@ jobs:
           git config user.email github-actions@github.com;
           git add CHANGELOG.md;
           git commit -m "Update CHANGELOG for new release";
-          git push;
+          git push origin HEAD:main;
         fi
 
     - name: Build package 📦
