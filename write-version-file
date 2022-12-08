@@ -3,7 +3,7 @@
 # Make sure we have the latest tags
 git fetch --tags --force --prune --prune-tags
 
-current_tag=$(git tag --list 'v*' | tr -d 'v' | sort -nur | head -n1)
+current_tag=$(git tag --list 'v*' | tr -d 'v' | sort -Vur | head -n1)
 [[ -z ${current_tag} ]] && current_tag="0.0.0"
 
 echo ${current_tag} > parse_changelog/VERSION
