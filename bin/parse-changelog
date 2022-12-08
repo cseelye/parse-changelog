@@ -25,6 +25,11 @@ def main(changelog_file, show_unreleased, new_release=None, release_date=None):
         except FileNotFoundError:
             print(f"Could not find {changelog_file}")
             sys.exit(0)
+        # Check if release already exists
+        if f"## {new_release_title}" in changelog:
+            print("Release already exists in changelog")
+            sys.exit(0)
+
         # Walk through existing changelog line by line
         # When Unreleased is found, insert the new release title
         new_changelog = ".CHANGELOG.md.new"
@@ -48,7 +53,7 @@ def main(changelog_file, show_unreleased, new_release=None, release_date=None):
 
                     tmp.write(line + "\n")
 
-                os.rename(new_changelog, "CHANGELOG.md")
+                os.rename(new_changelog, changelog_file)
         finally:
             # Make sure intermediate file is removed
             try:
