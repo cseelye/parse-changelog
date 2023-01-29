@@ -117,7 +117,7 @@ def main(changelog_file, show_unreleased, new_release=None, release_date=None):
                     rel_date = "unreleased"
                 else:
                     # Parse version and release date from the section title
-                    m =re.match(r"\[(\d+\.\d+\.\d+)\[-\.+0-9a-zA-Z]*]\s+-\s+(\d{4}-\d{2}-\d{2})", title)
+                    m =re.match(r"\[(\d+\.\d+\.\d+)[-\.+0-9a-zA-Z]*\]\s+-\s+(\d{4}-\d{2}-\d{2})", title)
                     if m:
                         version = m.group(1)
                         rel_date = m.group(2)
