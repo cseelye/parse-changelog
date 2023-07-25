@@ -10,7 +10,15 @@ on:
 
 jobs:
   build_publish:
+    name: Build and publish package
     runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+    environment:
+      name: pypi
+      url: https://pypi.org/p/parse-changelog
+
     steps:
 
     - name: Check out the repo 📘
@@ -48,6 +56,5 @@ jobs:
 
     - name: Publish package to PyPI 🎁
       if: startsWith(github.ref, 'refs/tags')
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        password: ${{ secrets.PYPI_API_TOKEN }}
+      uses: pypa/gh-action-pypi-publish@f8c70e705ffc13c3b4d1221169b84f12a75d6ca8
+
