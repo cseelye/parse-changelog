@@ -9,59 +9,72 @@ import re
 import sys
 
 
-def main(changelog_file, show_unreleased, new_release=None, release_date=None):
-    # Two modes of operation - insert a new release into the changelog, or parse the changelog to JSON
+def new_release(changelog_file, new_release, release_date=None):
+    """
+    Add a new release to the changelog, using the current content of the Unreleased section.
 
-    #
-    # Mode 1 - add a new release to the changelog, using the current content of the Unreleased section.
-    #
-    if new_release:
-        if not release_date:
-            release_date = datetime.now().strftime("%Y-%m-%d")
-        new_release_title = f"[{new_release}] - {release_date}"
-        try:
-            with open(changelog_file, "r", encoding="utf-8") as cf:
-                changelog = cf.read()
-        except FileNotFoundError:
-            print(f"Could not find {changelog_file}")
-            sys.exit(0)
-        # Check if release already exists
-        if f"## {new_release_title}" in changelog:
-            print("Release already exists in changelog")
-            sys.exit(0)
+    Args:
+        changelog_file:     (str) changelog file to parse
+        new_release:        (str) version of the release to create
+        release_date:       (datetime) date of the release (default to today)
+    """
+    if not release_date:
+        release_date = datetime.now().strftime("%Y-%m-%d")
 
-        # Walk through existing changelog line by line
-        # When Unreleased is found, insert the new release title
-        new_changelog = ".CHANGELOG.md.new"
-        try:
-            with open(new_changelog, 'w') as tmp:
-                # Read each line in the old changelog and write it to the new changelog.
-                # When we find the unreleased section, skip all the lines until the next section
-                # When we find the first section after unreleased, write the new release first
-                for line in changelog.split("\n"):
-                    if line.startswith("#") and line.count("#") == 2:
-                        title = line.strip("#").strip().lower()
-                        if title == "[unreleased]":
-                            # Insert the new release
-                            tmp.write(line + "\n")
-                            tmp.write("\n")
-                            tmp.write(f"## {new_release_title}\n")
-                            continue
+    new_release_title = f"[{new_release}] - {release_date}"
 
+    try:
+        with open(changelog_file, "r", encoding="utf-8") as cf:
+            changelog = cf.read()
+    except FileNotFoundError:
+        print(f"Could not find {changelog_file}")
+        sys.exit(0)
+    # Check if release already exists
+    if f"## {new_release_title}" in changelog:
+        print("Release already exists in changelog")
+        sys.exit(0)
+
+    # Walk through existing changelog line by line
+    # When Unreleased is found, insert the new release title
+    new_changelog = ".CHANGELOG.md.new"
+    try:
+        with open(new_changelog, 'w') as tmp:
+            # Read each line in the old changelog and write it to the new changelog.
+            # When we find the unreleased section, skip all the lines until the next section
+            # When we find the first section after unreleased, write the new release first
+            for line in changelog.split("\n"):
+                if line.startswith("#") and line.count("#") == 2:
+                    title = line.strip("#").strip().lower()
+                    if title == "[unreleased]":
+                        # Insert the new release
                         tmp.write(line + "\n")
+                        tmp.write("\n")
+                        tmp.write(f"## {new_release_title}\n")
                         continue
 
                     tmp.write(line + "\n")
+                    continue
 
-                os.rename(new_changelog, changelog_file)
-        finally:
-            # Make sure intermediate file is removed
-            try:
-                os.remove(new_changelog)
-            except FileNotFoundError:
-                pass
-        sys.exit(0)
+                tmp.write(line + "\n")
 
+            os.rename(new_changelog, changelog_file)
+    finally:
+        # Make sure intermediate file is removed
+        try:
+            os.remove(new_changelog)
+        except FileNotFoundError:
+            pass
+    sys.exit(0)
+
+
+def parse(changelog_file, show_unreleased):
+    """
+    Parse the changelog into JSON
+
+    Args:
+        changelog_file:     (str) changelog file to parse
+        show_unreleased:    (bool) only show the unreleased section
+    """
 
     #
     # Mode 2 - parse the changelog into a list of releases
@@ -184,4 +197,7 @@ if __name__ == "__main__":
     parser.add_argument("--version", "-v", action="version", version=get_version())
     args = parser.parse_args()
 
-    main(args.changelog_file, args.show_unreleased, args.new_release, args.release_date)
+    if args.new_release:
+        new_release(args.changelog_file, args.new_release, args.release_date)
+    else:
+        parse(args.changelog_file, args.show_unreleased)
