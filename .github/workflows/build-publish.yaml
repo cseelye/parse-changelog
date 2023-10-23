@@ -35,8 +35,9 @@ jobs:
 
     - name: Get the next version 📈
       run: |-
+        git fetch --tags --force --prune --prune-tags;
         current_tag=$(git tag --list 'v*' | tr -d 'v' | sort -Vur | head -n1);
-        new_tag=$(bump2version --dry-run --list --current-version ${current_tag} patch)
+        new_tag=$(bump2version --dry-run --list --current-version ${current_tag} patch);
         echo "new_tag=${new_tag}" >> $GITHUB_ENV
 
     - name: Build package 📦
