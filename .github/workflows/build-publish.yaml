@@ -3,8 +3,6 @@ name: Build and publish pypi package
 on:
   workflow_dispatch:
   push:
-    tags:
-      - 'v*.*.*'
     branches:
       - 'main'
 
@@ -25,37 +23,43 @@ jobs:
     - name: Check out the repo 📘
       uses: actions/checkout@v3
 
-    - name: Set up Python 3.10 🐍
+    - name: Set up Python 3.11 🐍
       uses: actions/setup-python@v3
       with:
-        python-version: "3.10"
+        python-version: "3.11"
 
     - name: Install tools 🛠️
       run: |-
         sudo apt-get install --yes make
-        python -m pip install setuptools twine wheel
+        python -m pip install setuptools twine wheel bump2version
+
+    - name: Get the next version 📈
+      run: |-
+        current_tag=$(git tag --list 'v*' | tr -d 'v' | sort -Vur | head -n1);
+        new_tag=$(bump2version --dry-run --list --current-version ${current_tag} patch)
+        echo "new_tag=${new_tag}" >> $GITHUB_ENV
+
+    - name: Build package 📦
+      run: >-
+        make package TAG=${{ env.new_tag }}
 
     - name: Update CHANGELOG with release 📋
-      if: startsWith(github.ref, 'refs/tags')
+      if: startsWith(github.ref, 'refs/heads/main')
       run: |-
         bin/parse-changelog --release "${GITHUB_REF_NAME:1}"
 
-    - name: Commit the CHANGELOG 💾
-      if: startsWith(github.ref, 'refs/tags')
+    - name: Commit CHANGELOG and tag 💾
+      if: startsWith(github.ref, 'refs/heads/main')
       run: |-
         if ! git diff -s --exit-code CHANGELOG.md; then
           git config user.name github-actions;
           git config user.email github-actions@github.com;
           git add CHANGELOG.md;
-          git commit -m "Update CHANGELOG for new release";
-          git push origin HEAD:main;
+          git tag -a v${{ env.new_tag }} -m "Version ${{ env.new_tag }}"
+          git commit -m "Update CHANGELOG for new release [ci skip]";
+          git push origin HEAD:main --follow-tags;
         fi
 
-    - name: Build package 📦
-      run: >-
-        make package
-
     - name: Publish package to PyPI 🎁
-      if: startsWith(github.ref, 'refs/tags')
+      if: startsWith(github.ref, 'refs/heads/main')
       uses: pypa/gh-action-pypi-publish@f8c70e705ffc13c3b4d1221169b84f12a75d6ca8
-

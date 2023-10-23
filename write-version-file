@@ -1,5 +1,11 @@
 #!/usr/bin/env -S bash -euET -o pipefail -O inherit_errexit
 
+if [[ -n ${TAG-} ]]; then
+    echo ${TAG} > parse_changelog/VERSION
+    cat parse_changelog/VERSION
+    exit 0
+fi
+
 # Make sure we have the latest tags
 git fetch --tags --force --prune --prune-tags
 

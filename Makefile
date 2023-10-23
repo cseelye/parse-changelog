@@ -20,8 +20,8 @@ publish:
 .PHONY: clean
 clean:
 	$(RM) -r build *.egg-info
-	$(RM) -r parse_changelog/__pycache__
+	$(RM) -r parse_changelog/__pycache__ parse_changelog/VERSION
 
 .PHONY: clobber
 clobber: clean
-	$(RM) -r dist
+	$(RM) -r dist 
