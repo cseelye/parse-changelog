@@ -47,7 +47,7 @@ jobs:
     - name: Update CHANGELOG with release 📋
       if: startsWith(github.ref, 'refs/heads/main')
       run: |-
-        bin/parse-changelog --release "${GITHUB_REF_NAME:1}"
+        bin/parse-changelog --release "${{ env.new_version }}"
 
     - name: Commit CHANGELOG and tag 💾
       if: startsWith(github.ref, 'refs/heads/main')
