@@ -1,8 +1,37 @@
 {
     "name": "changelog-parser",
     "image": "ghcr.io/cseelye/ubuntu-base-dev",
-    "extensions": [
-        "ms-python.python",
-        "cseelye.vscode-allofthem"
-    ]
+    "postStartCommand": {
+        "configure": "apt-get update && apt-get install -y git make python3-pip && pip install bump2version pylint ruff setuptools twine wheel"
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.black-formatter",
+                "ms-python.pylint",
+                "charliermarsh.ruff",
+                "cseelye.vscode-allofthem",
+                "tamasfe.even-better-toml"
+            ],
+            "settings": {
+                "dev.containers.copyGitConfig": true,
+                "editor.rulers": [
+                    120
+                ],
+                "editor.trimAutoWhitespace": true,
+                "extensions.ignoreRecommendations": true,
+                "files.trimTrailingWhitespace": true,
+                "files.trimFinalNewlines": true,
+                "files.exclude": {
+                    "**/__pycache__": true,
+                    "**/.pytest_cache": true,
+                    "**/.share": true,
+                    "**/.ruff_cache": true
+                },
+                "python.analysis.autoImportCompletions": false,
+                "editor.formatOnSave": true
+            }
+        }
+    }
 }
