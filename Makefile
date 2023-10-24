@@ -1,5 +1,10 @@
 SHELL := /usr/bin/env -S bash -euET -o pipefail -O inherit_errexit
 
+.PHONY: lint
+lint:
+	pylint bin/* parse_changelog/*
+	ruff bin/* parse_changelog*
+
 .PHONY: package
 package: write-version
 	python setup.py sdist
@@ -24,4 +29,4 @@ clean:
 
 .PHONY: clobber
 clobber: clean
-	$(RM) -r dist 
+	$(RM) -r dist

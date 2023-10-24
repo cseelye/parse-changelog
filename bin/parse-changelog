@@ -2,14 +2,13 @@
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from collections import OrderedDict
 from datetime import datetime
-from importlib import metadata
 import json
 import os
 import re
 import sys
 
 
-def new_release(changelog_file, new_release, release_date=None):
+def add_release(changelog_file, new_release, release_date=None):
     """
     Add a new release to the changelog, using the current content of the Unreleased section.
 
@@ -23,57 +22,35 @@ def new_release(changelog_file, new_release, release_date=None):
 
     new_release_title = f"[{new_release}] - {release_date}"
 
-    try:
-        with open(changelog_file, "r", encoding="utf-8") as cf:
-            changelog = cf.read()
-    except FileNotFoundError:
-        print(f"Could not find {changelog_file}")
-        sys.exit(0)
-    # Check if release already exists
-    if f"## {new_release_title}" in changelog:
+    changelog = parse(changelog_file)
+
+    if new_release in changelog:
         print("Release already exists in changelog")
-        sys.exit(0)
+        return
 
-    # Walk through existing changelog line by line
-    # When Unreleased is found, insert the new release title
-    new_changelog = ".CHANGELOG.md.new"
-    try:
-        with open(new_changelog, 'w') as tmp:
-            # Read each line in the old changelog and write it to the new changelog.
-            # When we find the unreleased section, skip all the lines until the next section
-            # When we find the first section after unreleased, write the new release first
-            for line in changelog.split("\n"):
-                if line.startswith("#") and line.count("#") == 2:
-                    title = line.strip("#").strip().lower()
-                    if title == "[unreleased]":
-                        # Insert the new release
-                        tmp.write(line + "\n")
-                        tmp.write("\n")
-                        tmp.write(f"## {new_release_title}\n")
-                        continue
+    changelog[new_release] = {
+        "title": new_release_title,
+        "content": changelog["prerelease"]["content"],
+        "version": new_release,
+        "date": release_date
+    }
+    # Move the new release into the correct spot - move new release to the beginning, and then put prerelease and intro at the beginning
+    changelog.move_to_end(new_release, last=False)
+    changelog.move_to_end("prerelease", last=False)
+    changelog.move_to_end("introduction", last=False)
 
-                    tmp.write(line + "\n")
-                    continue
+    changelog["prerelease"]["content"] = ""
 
-                tmp.write(line + "\n")
-
-            os.rename(new_changelog, changelog_file)
-    finally:
-        # Make sure intermediate file is removed
-        try:
-            os.remove(new_changelog)
-        except FileNotFoundError:
-            pass
-    sys.exit(0)
+    print(json.dumps(changelog, indent=2))
+    write_changelog(changelog_file, changelog)
 
 
-def parse(changelog_file, show_unreleased):
+def parse(changelog_file):
     """
     Parse the changelog into JSON
 
     Args:
         changelog_file:     (str) changelog file to parse
-        show_unreleased:    (bool) only show the unreleased section
     """
 
     #
@@ -84,7 +61,7 @@ def parse(changelog_file, show_unreleased):
             changelog = cf.read()
     except FileNotFoundError:
         print(f"Could not find {changelog_file}")
-        sys.exit(0)
+        sys.exit(1)
 
     # This parser is extremely simple and makes many assumptions about the structure of the document.
     # Instead of parsing headings into a generic tree structure, assume the changelog format where there is a single
@@ -119,18 +96,27 @@ def parse(changelog_file, show_unreleased):
                         section_key = current_release
                     release_list[section_key] = {
                         "title": current_release,
-                        "content": "\n".join(current_content),
+                        "content": "\n".join(current_content).rstrip(),
                         "version": version,
                         "date": rel_date}
+                else:
+                    release_list["introduction"] = {
+                        "title": "Changelog",
+                        "content": "\n".join(current_content).rstrip(),
+                        "version": "",
+                        "date": ""
+                    }
 
                 current_release = title
                 current_content = []
-                if title.lower() == "[unreleased]": # Special case for Unreleased section
+                # Special case for Unreleased section
+                if title.lower() == "[unreleased]":
                     version = "prerelease"
                     rel_date = "unreleased"
                 else:
                     # Parse version and release date from the section title
-                    m =re.match(r"\[(\d+\.\d+\.\d+)[-\.+0-9a-zA-Z]*\]\s+-\s+(\d{4}-\d{2}-\d{2})", title)
+                    m = re.match(
+                        r"\[(\d+\.\d+\.\d+)[-\.+0-9a-zA-Z]*\]\s+-\s+(\d{4}-\d{2}-\d{2})", title)
                     if m:
                         version = m.group(1)
                         rel_date = m.group(2)
@@ -156,24 +142,107 @@ def parse(changelog_file, show_unreleased):
             section_key = current_release
         release_list[section_key] = {
             "title": current_release,
-            "content": "\n".join(current_content),
+            "content": "\n".join(current_content).rstrip(),
             "version": version,
             "date": rel_date}
 
+    return release_list
+
+
+def pretty_print(changelog_file, show_unreleased):
+    """
+    Print changelog as JSON
+
+    Args:
+        changelog_file:     (str) changelog file to parse
+        show_unreleased:    (bool) only show the unreleased section
+    """
+    changelog = parse(changelog_file)
+
     # Only show the unreleased changes section
     if show_unreleased:
-        print(release_list.get("prerelease", {}).get("content", ""))
-        sys.exit(0)
+        print(changelog.get("prerelease", {}).get("content", ""))
+        return
 
     # Show what we parsed, in JSON format
-    print(json.dumps(release_list, indent=2))
-    sys.exit(0)
+    print(json.dumps(changelog, indent=2))
 
-    # # Sort known versions in reversed, semantic order
-    # versions = list(document.keys())
-    # versions.remove("prerelease")
-    # versions.sort(key = lambda x: [int(y) for y in x.split('.')], reverse=True)
-    # print(versions)
+
+def add_change(changelog_file, change_desc, change_type):
+    change_type = change_type.title()
+    if not change_desc.startswith("*"):
+        change_desc = "* " + change_desc
+    change_desc.rstrip()
+
+    changelog = parse(changelog_file)
+    prerelease = changelog.get("prerelease", {})
+    if not prerelease:
+        prerelease = {
+            "title": "[Unreleased]",
+            "content": "",
+            "version": "prerelease",
+            "date": "unreleased"
+        }
+
+    # Insert the new change at the appropriate section
+    content = prerelease.get("content", "")
+    new_content = ""
+    found = False
+    for line in content.split("\n"):
+        if re.search(r"^###\s+" + change_type, line, re.IGNORECASE):
+            found = True
+            # insert the new change description
+            if not new_content.endswith("\n"):
+                new_content += "\n"
+            new_content += line
+            if not new_content.endswith("\n"):
+                new_content += "\n"
+            new_content += change_desc + "\n"
+        else:
+            new_content += line
+            if not new_content.endswith("\n"):
+                new_content += "\n"
+    prerelease["content"] = new_content.rstrip()
+    if not found:
+        prerelease["content"] += f"\n### {change_type}\n{change_desc}"
+
+
+    changelog["prerelease"] = prerelease
+
+    print(json.dumps(changelog, indent=2))
+    write_changelog(changelog_file, changelog)
+
+
+def write_changelog(changelog_file, content):
+    """
+    Write out a changelog from the JSON structure
+
+    Args:
+        changelog_file:     (str) changelog file to parse
+        content:            (OrderedDict) content to write to the changelog
+    """
+    new_changelog = ".CHANGELOG.md.new"
+    try:
+        with open(new_changelog, 'w', encoding="utf-8") as tmp:
+            tmp.write("# Changelog\n")
+            intro = content.pop("introduction", {}).get("content", "")
+            tmp.write(f"{intro}\n")
+            tmp.write("\n")
+
+            for idx, heading in enumerate(content):
+                tmp.write(f"## {content[heading]['title']}\n")
+                if content[heading]["content"]:
+                    tmp.write(content[heading]["content"] + "\n")
+                if idx < len(content)-1:
+                    tmp.write("\n")
+        os.rename(new_changelog, changelog_file)
+    finally:
+        # Make sure intermediate file is removed
+        try:
+            os.remove(new_changelog)
+        except FileNotFoundError:
+            pass
+
 
 def get_version():
     try:
@@ -184,20 +253,35 @@ def get_version():
 
 
 if __name__ == "__main__":
+    change_types = ["added", "changed", "deprecated", "removed", "fixed", "security"]
+
     parser = ArgumentParser(description="Parse and update changelog files",
                             formatter_class=ArgumentDefaultsHelpFormatter)
+    # Common args
     parser.add_argument("--changelog", "-c", dest="changelog_file", default="CHANGELOG.md",
                         help="the changelog file to parse")
-    parser.add_argument("--show-unreleased", "-u", dest="show_unreleased", action="store_true",
-                        help="When parsing, only show the changes from the Unreleased section")
-    parser.add_argument("--release", "-r", dest="new_release", metavar="X.Y.Z",
-                    help="Create a new release by moving the Unreleased section to the specified new release section")
-    parser.add_argument("--date", "-d", dest="release_date", metavar="YYYY-MM-DD",
-                        help="Use this date for the new release, instead of today")
-    parser.add_argument("--version", "-v", action="version", version=get_version())
+    parser.add_argument("--version", "-v", action="version",
+                        version=get_version())
+    # Args for parsing
+    parsing_group = parser.add_argument_group(title="Parsing")
+    parsing_group.add_argument("--show-unreleased", "-u", dest="show_unreleased", action="store_true",
+                               help="When parsing, only show the changes from the Unreleased section")
+    # Args for creating a release
+    release_group = parser.add_argument_group("Adding a Release")
+    release_group.add_argument("--release", "-r", dest="new_release", metavar="X.Y.Z",
+                               help="Create a new release by moving the Unreleased section to the specified new release section")
+    release_group.add_argument("--date", "-d", dest="release_date", metavar="YYYY-MM-DD",
+                               help="Use this date for the new release, instead of today")
+    # Args for adding changes
+    change_group = parser.add_argument_group("Adding a change")
+    change_group.add_argument("--add-change", "-a", dest="change_desc", metavar="TEXT", help="One-line description of the change")
+    change_group.add_argument("--type", "-t", dest="change_type", metavar="TYPE", choices=change_types, help=f"The type of change {change_types}")
+
     args = parser.parse_args()
 
     if args.new_release:
-        new_release(args.changelog_file, args.new_release, args.release_date)
+        add_release(args.changelog_file, args.new_release, args.release_date)
+    elif args.change_desc:
+        add_change(args.changelog_file, args.change_desc, args.change_type)
     else:
-        parse(args.changelog_file, args.show_unreleased)
+        pretty_print(args.changelog_file, args.show_unreleased)
