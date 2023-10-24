@@ -12,7 +12,8 @@
                 "ms-python.pylint",
                 "charliermarsh.ruff",
                 "cseelye.vscode-allofthem",
-                "tamasfe.even-better-toml"
+                "tamasfe.even-better-toml",
+                "streetsidesoftware.code-spell-checker"
             ],
             "settings": {
                 "dev.containers.copyGitConfig": true,
