@@ -35,30 +35,32 @@ jobs:
 
     - name: Get the next version 📈
       run: |-
-        git fetch --tags --force --prune --prune-tags;
-        current_version=$(git tag --list 'v*' | tr -d 'v' | sort -Vur | head -n1);
-        source <(bump2version --dry-run --list --current-version ${current_version} patch);
-        echo "new_version=${new_version}" >> $GITHUB_ENV
+        git fetch --tags --force --prune --prune-tags
+        current_version=$(git tag --list 'v*' | tr -d 'v' | sort -Vur | head -n1)
+        bump2version_output=$(bump2version --dry-run --list --current-version "${current_version}" patch)
+        new_version=$(printf '%s\n' "${bump2version_output}" | awk -F= '$1 == "new_version" {print $2}')
+        [[ "${new_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
+        printf 'NEW_VERSION=%s\n' "${new_version}" >> "${GITHUB_ENV}"
 
     - name: Build package 📦
       run: >-
-        make package TAG=${{ env.new_version }}
+        make package TAG="${NEW_VERSION}"
 
     - name: Update CHANGELOG with release 📋
       if: startsWith(github.ref, 'refs/heads/main')
       run: |-
-        bin/parse-changelog --release "${{ env.new_version }}"
+        bin/parse-changelog --release "${NEW_VERSION}"
 
     - name: Commit CHANGELOG and tag 💾
       if: startsWith(github.ref, 'refs/heads/main')
       run: |-
         if ! git diff -s --exit-code CHANGELOG.md; then
-          git config user.name github-actions;
-          git config user.email github-actions@github.com;
-          git add CHANGELOG.md;
-          git tag -a v${{ env.new_version }} -m "Version ${{ env.new_version }}"
-          git commit -m "Update CHANGELOG for new release [ci skip]";
-          git push origin HEAD:main --follow-tags;
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add CHANGELOG.md
+          git tag -a "v${NEW_VERSION}" -m "Version ${NEW_VERSION}"
+          git commit -m "Update CHANGELOG for new release [ci skip]"
+          git push origin HEAD:main --follow-tags
         fi
 
     - name: Publish package to PyPI 🎁

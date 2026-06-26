@@ -6,6 +6,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 
 
 def add_release(changelog_file, new_release, release_date=None):
@@ -221,9 +222,12 @@ def write_changelog(changelog_file, content):
         changelog_file:     (str) changelog file to parse
         content:            (OrderedDict) content to write to the changelog
     """
-    new_changelog = ".CHANGELOG.md.new"
+    target_path = os.path.abspath(changelog_file)
+    target_dir = os.path.dirname(target_path) or "."
+    new_changelog = None
     try:
-        with open(new_changelog, 'w', encoding="utf-8") as tmp:
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=target_dir, delete=False) as tmp:
+            new_changelog = tmp.name
             tmp.write("# Changelog\n")
             intro = content.pop("introduction", {}).get("content", "")
             tmp.write(f"{intro}\n")
@@ -235,13 +239,14 @@ def write_changelog(changelog_file, content):
                     tmp.write(content[heading]["content"] + "\n")
                 if idx < len(content)-1:
                     tmp.write("\n")
-        os.rename(new_changelog, changelog_file)
+        os.replace(new_changelog, target_path)
     finally:
         # Make sure intermediate file is removed
-        try:
-            os.remove(new_changelog)
-        except FileNotFoundError:
-            pass
+        if new_changelog:
+            try:
+                os.remove(new_changelog)
+            except FileNotFoundError:
+                pass
 
 
 def get_version():
