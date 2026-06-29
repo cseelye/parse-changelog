@@ -7,8 +7,7 @@ lint:
 
 .PHONY: package
 package: write-version
-	python setup.py sdist
-	python setup.py bdist_wheel --universal
+	python -m build
 
 .PHONY: write-version
 write-version:

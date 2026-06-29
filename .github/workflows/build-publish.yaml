@@ -31,7 +31,7 @@ jobs:
     - name: Install tools 🛠️
       run: |-
         sudo apt-get install --yes make
-        python -m pip install setuptools twine wheel bump2version
+        python -m pip install build setuptools twine wheel bump2version
 
     - name: Get the next version 📈
       run: |-
@@ -42,14 +42,24 @@ jobs:
         [[ "${new_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
         printf 'NEW_VERSION=%s\n' "${new_version}" >> "${GITHUB_ENV}"
 
-    - name: Build package 📦
-      run: >-
-        make package TAG="${NEW_VERSION}"
-
     - name: Update CHANGELOG with release 📋
       if: startsWith(github.ref, 'refs/heads/main')
       run: |-
         bin/parse-changelog --release "${NEW_VERSION}"
+
+    - name: Build package 📦
+      run: >-
+        make package TAG="${NEW_VERSION}"
+
+    - name: Check package metadata 🔎
+      if: startsWith(github.ref, 'refs/heads/main')
+      run: |-
+        twine check dist/*
+
+    - name: Publish package to PyPI 🎁
+      if: startsWith(github.ref, 'refs/heads/main')
+      # pypa/gh-action-pypi-publish v1.9.0
+      uses: pypa/gh-action-pypi-publish@ec4db0b4ddc65acdf4bff5fa45ac92d78b56bdf0
 
     - name: Commit CHANGELOG and tag 💾
       if: startsWith(github.ref, 'refs/heads/main')
@@ -62,7 +72,3 @@ jobs:
           git commit -m "Update CHANGELOG for new release [ci skip]"
           git push origin HEAD:main --follow-tags
         fi
-
-    - name: Publish package to PyPI 🎁
-      if: startsWith(github.ref, 'refs/heads/main')
-      uses: pypa/gh-action-pypi-publish@f8c70e705ffc13c3b4d1221169b84f12a75d6ca8
