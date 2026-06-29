@@ -8,10 +8,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Security
+* Harden changelog writes against fixed temporary-file symlink overwrites.
+* Harden the release workflow by validating computed versions and avoiding raw GitHub expression injection in shell commands.
 
-## [1.0.10] - 2026-06-29
+### Changed
+* Build release distributions with the standard Python build frontend and validate package metadata before publishing.
+* Move automated changelog commits and release tags after successful PyPI publishing.
 
-## [1.0.9] - 2026-06-26
+### Fixed
+* Fix Linux release packaging so the generated wheel keeps the intended version and uses metadata supported by the publish action.
 
 ## [1.0.8] - 2023-10-24
 ### Fixed

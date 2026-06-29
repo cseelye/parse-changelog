@@ -33,6 +33,16 @@ jobs:
         sudo apt-get install --yes make
         python -m pip install build setuptools twine wheel bump2version
 
+    - name: Check unreleased changelog entries 📋
+      if: startsWith(github.ref, 'refs/heads/main')
+      run: |-
+        unreleased_changes=$(bin/parse-changelog --show-unreleased)
+        unreleased_entries=$(printf '%s\n' "${unreleased_changes}" | sed '/^[[:space:]]*###/d')
+        if [[ -z "${unreleased_entries//[[:space:]]/}" ]]; then
+          echo "No unreleased changelog updates found."
+          exit 1
+        fi
+
     - name: Get the next version 📈
       run: |-
         git fetch --tags --force --prune --prune-tags
