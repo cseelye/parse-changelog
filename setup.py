@@ -1,12 +1,12 @@
 from setuptools import setup
-from parse_changelog import get_version
 
 try:
-    version = get_version()
+    with open("parse_changelog/VERSION", encoding="utf-8") as version_file:
+        version = version_file.read().strip()
 except Exception:
     version = "unknown"
 try:
-    with open("README.md") as readme_file:
+    with open("README.md", encoding="utf-8") as readme_file:
         readme = readme_file.read()
 except Exception:
     readme = ""

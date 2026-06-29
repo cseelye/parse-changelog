@@ -54,6 +54,11 @@ jobs:
     - name: Check package metadata 🔎
       if: startsWith(github.ref, 'refs/heads/main')
       run: |-
+        if compgen -G 'dist/*0.0.0*' > /dev/null; then
+          echo "Refusing to publish package artifacts with fallback version 0.0.0"
+          ls -la dist
+          exit 1
+        fi
         twine check dist/*
 
     - name: Publish package to PyPI 🎁
